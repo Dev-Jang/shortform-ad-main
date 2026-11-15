@@ -1,16 +1,22 @@
 /* ============================================================
-   숏폼 광고 설문 — v7.1 (2026-11-15) · GitHub Pages + DataPipe 배포본
+   숏폼 광고 설문 — v7.2 (2026-11-16) · GitHub Pages + DataPipe 배포본
    - index.html이 이 파일(experiment.js)을 불러옵니다. 배포 전 CONFIG만 확인하세요.
 
    v7.0 변경 사항 (v6.2 대비)
    ① 매개변수 교체: 지각된 신선성 → 지각된 투명성(TR1~3), 지각된 진정성 → 지각된 제작 노력(EF1~3)
    ② 숏폼 이용 문항(U1·U2)을 영상 시청 전으로 이동(공변량)
-   ③ 두 번째 광고 평가 뒤 심리적 반발 3문항(RX1~3) 추가
+   ③ (v7.2에서 삭제) 심리적 반발 3문항
    ④ 지불 의사 금액: 새 규격 + 상품 사진 제시, 네 제품 공통 금액 구간
    ⑤ 새 광고 영상 4편(media/ 폴더), 상품 사진 4장
    ⑥ 배포: Cognition.run → GitHub Pages, 저장: DataPipe 확장(extension-pipe, 문항별 전송 + 종료 시 최종 저장 → Google Drive),
       집단 배정: DataPipe 순번 → 블록 배정표
    ⑦ 사은품 버전: 동의 화면 안내 + 마지막 화면 휴대폰 번호 입력(CONFIG.REWARD.ON)
+
+   v7.2 변경 사항 (2026-11-16)
+   ① 심리적 반발(RX1~3), AI 사용 동기 추측(MA1~3) 문항·페이지 삭제
+   ② SPH 삭제 → AI 제작 인식(AI_PERCEPTION_1·2, 비표시 집단, 광고별 1문항, 시청 순서대로, 역산 없음)
+   ③ 분석 계획: AI 태도(G)·신기술 수용 성향(T)·AI 리터러시(L)는 수집하되 주 분석의 필수 공변량에 넣지 않음.
+      세 변수를 추가한 보조 분석을 사전에 계획해 실시하며, 광고 시청 후 측정한 값이라는 해석상의 한계를 명시함.
    ============================================================ */
 
 (async function main() {
@@ -257,7 +263,7 @@ p.jspsych-survey-multi-choice-text { font-size: 16px; font-weight: 500; line-hei
 })();
 
 /* ========================== [EDIT] CONFIG ========================== */
-const CODE_VERSION = "7.1";
+const CODE_VERSION = "7.2";
 const CONFIG = {
   RUN_ENV: "pipe",               // "pipe"(DataPipe 저장) | "local"(CSV 내려받기, 시험용)
   DATAPIPE_ID: "DMiQ39uMZDXk",   // pipe.jspsych.org의 Experiment ID (shortform-ad-main)
@@ -926,31 +932,30 @@ productKeys.forEach(function (pk, i) {
   timeline.push.apply(timeline, measureBlock(pk, i + 1));
 });
 
-/* 심리적 반발 — 두 광고 평가가 끝난 뒤 한 번 (탐색 변수) */
-timeline.push(likertPage("reactance", {},
-  "광고에 대한 거부감",
-  "방금 보신 <b>광고 영상 2편</b>을 보면서 <b>거북하거나 떠밀리는 느낌이 들었는지</b> 묻습니다.",
-  [
-    { name: "RX1", prompt: "방금 본 광고들은 나 대신 결정을 내리려 했다." },
-    { name: "RX2", prompt: "방금 본 광고들은 나를 조종하려 했다." },
-    { name: "RX3", prompt: "방금 본 광고들을 보며 짜증이 났다." }
-  ]
-));
-
 /* =====================================================================
-   [블록 4] 사후 인지 점검 — SP1(비표시 전용) → MC1
-   (조건별로 해당 페이지만 빌드하여 통번호가 끊기지 않도록 함)
+   [블록 4] 사후 점검 — AI 제작 인식(비표시 전용, 광고별 1문항) → MC1
+   AI 제작 인식: 점수가 높을수록 'AI로 제작했다'고 생각하는 정도가 높음.
+   AI 가능성을 직접 제시하고 묻는 문항이므로 제외 기준·주 분석 통제변수로 쓰지 않고,
+   비표시 집단의 인식을 설명하는 보조 자료로만 사용함.
    ===================================================================== */
 if (COND === "nolabel") {
-  /* 역방향 문항: 높을수록 '사람이 촬영했다'고 판단 → 분석 시 자발적 AI 인지 = 8 − SPH.
-     문항에 'AI'를 쓰지 않아 응답자에게 AI 제작을 암시하지 않도록 함 */
-  timeline.push(likertPage("sp", {},
-    "영상 제작 방식 추측",
-    "방금 보신 <b>광고 영상 2편</b>이 <b>어떻게 만들어졌다고 생각하는지</b> 묻습니다.",
-    [{ name: "SPH",
-       prompt: "방금 보신 광고 영상 2편은 <b>사람이 카메라로 직접 촬영해 만든 영상</b>일 것이다.",
-       labels: L7 }],
-    { randomize: false, sub: "영상을 보며 느낀 그대로 골라 주세요." }
+  const ORD = ["첫 번째", "두 번째"];
+  const aipData = {};
+  const aipItems = productKeys.map(function (pk, i) {
+    aipData["ai_perception_" + (i + 1) + "_product"] = pk;
+    aipData["ai_perception_" + (i + 1) + "_video_index"] = i + 1;
+    return {
+      name: "AI_PERCEPTION_" + (i + 1),
+      prompt: ORD[i] + "로 본 <b>" + PRODUCTS[pk].brand + " " + PRODUCTS[pk].name +
+              " 광고 영상</b>은 인공지능(AI)을 사용해 제작한 영상이라고 생각한다.",
+      labels: L7
+    };
+  });
+  timeline.push(likertPage("ai_perception", aipData,
+    "영상 제작 방식에 대한 생각",
+    "앞서 본 각 광고 영상이 어떻게 제작되었다고 생각하는지 답해 주세요.",
+    aipItems,
+    { randomize: false }
   ));
 }
 
@@ -962,20 +967,6 @@ timeline.push(mcPage("mc", {},
     name: "MC1", options: ["있었다", "없었다", "기억나지 않는다"]
   }]
 ));
-
-/* 동기 귀인 — 표시 조건 전용, MC1 이후 */
-if (COND === "label") {
-  timeline.push(likertPage("motive", {},
-    "AI 사용 동기 추측",
-    "방금 보신 광고 영상 2편에는 ‘AI로 생성된 영상입니다’라는 표시가 있었습니다. " +
-    "이 광고를 만든 <b>회사들이 왜 AI를 썼을지</b> 어떻게 생각하는지 묻습니다.",
-    [
-      { name: "MA1", prompt: "이 회사들은 광고 만드는 돈과 시간을 아끼려고 AI를 썼을 것이다." },
-      { name: "MA2", prompt: "이 회사들은 소비자보다 회사의 이익을 먼저 생각했을 것이다." },
-      { name: "MA3", prompt: "이 회사들은 제품을 실제보다 좋아 보이게 꾸며서 소비자를 속이려 했을 것이다." }
-    ]
-  ));
-}
 
 /* =====================================================================
    [블록 5] 개인 특성 변수 (숏폼 이용 문항은 시청 전으로 이동)
