@@ -1,5 +1,5 @@
 /* ============================================================
-   숏폼 광고 설문 — v7.3 (2026-11-16) · GitHub Pages + DataPipe 배포본
+   숏폼 광고 설문 — v7.4 (2026-11-16) · GitHub Pages + DataPipe 배포본
    - index.html이 이 파일(experiment.js)을 불러옵니다. 배포 전 CONFIG만 확인하세요.
 
    v7.0 변경 사항 (v6.2 대비)
@@ -25,6 +25,14 @@
    ④ AI 리터러시: Wang 등(2023) AILS 12문항(L1~12, L2·L5·L11 역문항)
    ⑤ 새 광고 영상 4편(문구 위치 수정본)
    ※ 저장되는 점수는 응답 원값(1~7)임. 역채점은 분석 단계에서 함(reverse_items 열 참고).
+
+   v7.4 변경 사항 (2026-11-16)
+   ① 지불 의사 금액 페이지에서 [앞 문항 수정] 버튼 제거
+   ② AI 리터러시 안내문에 평가·책임 있는 사용 포함
+   ③ 배정 순번을 못 받으면 단순 무작위로 넘어가지 않고 [다시 시도] 화면 표시(순번 요청 횟수는 condition_tries)
+   ④ 연구자 확인용 링크(key + cell)는 배정 순번을 받지 않음
+   ※ 분석 규칙: 리커트는 scores 열(1~7) 사용(response 열은 0~6). T2·L2·L5·L11만 8 − scores로 역채점.
+      [앞 문항 수정]으로 같은 페이지가 여러 행 저장되면 참가자 × product × block별로 nav가 back이 아닌 마지막 행을 사용.
    ============================================================ */
 
 (async function main() {
@@ -271,7 +279,7 @@ p.jspsych-survey-multi-choice-text { font-size: 16px; font-weight: 500; line-hei
 })();
 
 /* ========================== [EDIT] CONFIG ========================== */
-const CODE_VERSION = "7.3";
+const CODE_VERSION = "7.4";
 const CONFIG = {
   RUN_ENV: "pipe",               // "pipe"(DataPipe 저장) | "local"(CSV 내려받기, 시험용)
   DATAPIPE_ID: "DMiQ39uMZDXk",   // pipe.jspsych.org의 Experiment ID (shortform-ad-main)
@@ -424,25 +432,45 @@ function makeBlocks(nBlocks, seed) {
 }
 const ASSIGN_SEED = hashStr("shortform-ad|" + CONFIG.TASK_ID);
 const ASSIGN = makeBlocks(100, ASSIGN_SEED);             // 400칸
-let COND_RAW = null;
-if (CONFIG.RUN_ENV === "pipe") {
-  try {
-    const c = await Promise.race([jsPsychExtensionPipe.getCondition(CONFIG.DATAPIPE_ID),
-                                  new Promise(function (res) { setTimeout(function () { res(null); }, 6000); })]);
-    if (typeof c === "number" && Number.isFinite(c)) COND_RAW = c;
-  } catch (e) {}
-}
-
 /* URL 집단 지정은 연구자 확인용 key가 있을 때만 허용 (본조사 링크에는 key를 붙이지 않음) */
 const urlCell = (jsPsych.data.getURLVariable("key") === CONFIG.DEBUG_KEY)
   ? (jsPsych.data.getURLVariable("cell") || "").toUpperCase() : "";
+
+/* 배정 순번 받기: 실패하면 단순 무작위로 넘어가지 않고, 설문을 시작하지 않은 채 다시 시도하게 함(블록 배정 유지).
+   연구자 확인용 링크(key + cell)는 순번을 받지 않음 → 미리보기가 배정 순번을 소모하지 않음. */
+let COND_RAW = null, COND_TRIES = 0;
+async function fetchCondition() {
+  try {
+    const c = await Promise.race([jsPsychExtensionPipe.getCondition(CONFIG.DATAPIPE_ID),
+                                  new Promise(function (res) { setTimeout(function () { res(null); }, 6000); })]);
+    if (typeof c === "number" && Number.isFinite(c) && c >= 0) return c;
+  } catch (e) {}
+  return null;
+}
+if (CONFIG.RUN_ENV === "pipe" && !CELLS[urlCell]) {
+  while (COND_RAW === null) {
+    for (let k = 0; k < 3 && COND_RAW === null; k++) { COND_TRIES++; COND_RAW = await fetchCondition(); }
+    if (COND_RAW !== null) break;
+    await new Promise(function (resolve) {
+      const box = document.createElement("div");
+      box.id = "cond-retry";
+      box.style.cssText = "max-width:440px;margin:18vh auto 0;padding:24px 20px;text-align:center;font-family:inherit;line-height:1.6;";
+      box.innerHTML = "<h3 style='margin:0 0 10px'>접속이 원활하지 않습니다</h3>" +
+        "<p style='margin:0 0 18px'>설문을 시작하지 못했습니다. 인터넷 연결을 확인한 뒤 아래 버튼을 눌러 주세요.</p>" +
+        "<button type='button' class='jspsych-btn' id='cond-retry-btn'>다시 시도</button>";
+      document.body.appendChild(box);
+      document.getElementById("cond-retry-btn").addEventListener("click", function () { box.remove(); resolve(); });
+    });
+  }
+}
+
 let CELL_SOURCE;
 const CELL = (function () {
   if (CELLS[urlCell]) { CELL_SOURCE = "url_debug"; return urlCell; }
   if (COND_RAW !== null && COND_RAW >= 0) {
     CELL_SOURCE = "block"; return ASSIGN[COND_RAW % ASSIGN.length];
   }
-  CELL_SOURCE = "random";
+  CELL_SOURCE = "random";   // RUN_ENV가 "local"일 때만 도달
   return jsPsych.randomization.sampleWithoutReplacement(["A", "B", "C", "D"], 1)[0];
 })();
 const COND = CELLS[CELL].condition;
@@ -452,7 +480,7 @@ const productKeys = jsPsych.randomization.shuffle(
 );
 jsPsych.data.addProperties({
   pid: PID, task_id: CONFIG.TASK_ID, code_version: CODE_VERSION,
-  cell: CELL, cell_source: CELL_SOURCE, condition_raw: COND_RAW, assign_seed: ASSIGN_SEED,
+  cell: CELL, cell_source: CELL_SOURCE, condition_raw: COND_RAW, condition_tries: COND_TRIES, assign_seed: ASSIGN_SEED,
   condition: COND, category: CAT,
   product_order: productKeys.join("|"),
   reward_version: CONFIG.REWARD.ON,
@@ -900,7 +928,8 @@ function measureBlock(prodKey, idx) {
   zonePages.push(withBack(keepAnswers(piiPage(prodKey, idx))));
 
   /* ⑥ 지불 의사 금액 — 상품 사진과 규격 제시 */
-  zonePages.push(withBack(keepAnswers(mcPage("wtp", { video_index: idx, product: prodKey },
+  /* WTP에는 [앞 문항 수정] 버튼을 두지 않음: 상품 사진·규격·가격 구간을 본 뒤에는 앞선 광고 평가를 고칠 수 없게 함 */
+  zonePages.push(keepAnswers(mcPage("wtp", { video_index: idx, product: prodKey },
     "지불 의사 금액",
     "광고에 나온 <b>" + nm + "</b>을(를) 산다면 <b>최대 얼마까지 낼 수 있는지</b> 묻습니다.",
     [{
@@ -909,7 +938,7 @@ function measureBlock(prodKey, idx) {
     }],
     { extraHTML: "<figure class='wtp-fig'><img src='" + CONFIG.VIDEO_PATH + PRODUCTS[prodKey].img + "' alt='" + nm + " 상품 사진'>" +
                  "<figcaption>" + PRODUCTS[prodKey].brand + " " + nm + " · " + WTP_SPEC[prodKey] + "</figcaption></figure>" }
-  ))));
+  )));
 
   t.push(backZone(zonePages));
   return t;
@@ -1032,7 +1061,7 @@ const LIT_ITEMS = [
   { name: "L11", prompt: "나는 AI 앱이나 제품을 사용할 때 개인정보와 정보 보안 문제에 전혀 주의를 기울이지 않는다." },
   { name: "L12", prompt: "나는 AI 기술의 오남용을 항상 경계한다." }
 ];
-const LIT_DESC = "AI를 좋아하는지가 아니라, <b>AI를 얼마나 알고 다룰 수 있는지</b> 스스로 평가해 주세요.";
+const LIT_DESC = "다음은 <b>AI에 대한 이해, 활용, 평가와 책임 있는 사용</b>에 관한 질문입니다. 각 문장이 평소 자신의 모습에 얼마나 해당하는지 답해 주세요.";
 const pgLit1 = likertPage("lit1", { scale: "AILS", reverse_items: "L2,L5" },
   "AI 리터러시 (1/2)", LIT_DESC, LIT_ITEMS.slice(0, 6), { randomize: false });
 const pgLit2 = likertPage("lit2", { scale: "AILS", reverse_items: "L11" },
