@@ -1,5 +1,5 @@
 /* ============================================================
-   숏폼 광고 설문 — v7.2 (2026-11-16) · GitHub Pages + DataPipe 배포본
+   숏폼 광고 설문 — v7.3 (2026-11-16) · GitHub Pages + DataPipe 배포본
    - index.html이 이 파일(experiment.js)을 불러옵니다. 배포 전 CONFIG만 확인하세요.
 
    v7.0 변경 사항 (v6.2 대비)
@@ -17,6 +17,14 @@
    ② SPH 삭제 → AI 제작 인식(AI_PERCEPTION_1·2, 비표시 집단, 광고별 1문항, 시청 순서대로, 역산 없음)
    ③ 분석 계획: AI 태도(G)·신기술 수용 성향(T)·AI 리터러시(L)는 수집하되 주 분석의 필수 공변량에 넣지 않음.
       세 변수를 추가한 보조 분석을 사전에 계획해 실시하며, 광고 시청 후 측정한 값이라는 해석상의 한계를 명시함.
+
+   v7.3 변경 사항 (2026-11-16)
+   ① 광고 가치 V1·V2와 안내문 수정(가치 있다 / 유용하다 / 중요하다)
+   ② AI 태도: Novotny 등(2025) 일반 AI 태도 6문항(G1~6), 원척도의 질문형·응답 형식
+   ③ 신기술 수용 성향: Agarwal & Prasad(1998) PIIT 4문항(T1~4, T2 역문항) — 논문 개념명 '개인적 정보기술 혁신성'
+   ④ AI 리터러시: Wang 등(2023) AILS 12문항(L1~12, L2·L5·L11 역문항)
+   ⑤ 새 광고 영상 4편(문구 위치 수정본)
+   ※ 저장되는 점수는 응답 원값(1~7)임. 역채점은 분석 단계에서 함(reverse_items 열 참고).
    ============================================================ */
 
 (async function main() {
@@ -263,7 +271,7 @@ p.jspsych-survey-multi-choice-text { font-size: 16px; font-weight: 500; line-hei
 })();
 
 /* ========================== [EDIT] CONFIG ========================== */
-const CODE_VERSION = "7.2";
+const CODE_VERSION = "7.3";
 const CONFIG = {
   RUN_ENV: "pipe",               // "pipe"(DataPipe 저장) | "local"(CSV 내려받기, 시험용)
   DATAPIPE_ID: "DMiQ39uMZDXk",   // pipe.jspsych.org의 Experiment ID (shortform-ad-main)
@@ -652,7 +660,7 @@ timeline.push(page({
     "<p>본 설문은 한양대학교 경영정보시스템(MIS) 석사 연구의 일부로, " +
     "<b>짧은 광고 영상에 대한 소비자 반응</b>을 알아봅니다.</p>" +
     "<p>응답은 연구 목적으로만 사용되며, 분석할 때 응답 내용으로 개인을 식별하지 않습니다. " +
-    "정답은 없으니 평소 느낌대로 응답해 주세요. <b>(약 7분 소요)</b></p>" +
+    "정답은 없으니 평소 느낌대로 응답해 주세요. <b>(약 8분 소요)</b></p>" +
     (CONFIG.REWARD.ON
       ? "<div class='gift'><b>설문을 끝까지 완료하신 분께 " + CONFIG.REWARD.ITEM + "을 드립니다.</b><br>" +
         "· 마지막 화면에서 받으실 <b>휴대폰 번호</b>를 입력해 주세요. 번호는 사은품 발송에만 사용하고 발송 뒤 삭제합니다.<br>" +
@@ -868,10 +876,10 @@ function measureBlock(prodKey, idx) {
   /* ③ 지각된 광고 가치 (AC1 제거) */
   zonePages.push(withBack(keepAnswers(likertPage("advalue", { video_index: idx, product: prodKey },
     "광고 가치",
-    "방금 보신 <b>" + nm + " 광고</b>가 <b>나에게 얼마나 도움이 되고 쓸모 있는지</b> 묻습니다.",
+    "방금 보신 <b>" + nm + " 광고</b> 자체를 <b>전반적으로 어떻게 평가하는지</b> 답해 주세요.",
     [
-      { name: "V1", prompt: "이 광고는 내가 시간을 들여 볼 만하다." },
-      { name: "V2", prompt: "이 광고는 나에게 쓸모 있는 정보를 준다." },
+      { name: "V1", prompt: "이 광고는 나에게 가치가 있다." },
+      { name: "V2", prompt: "이 광고는 나에게 유용하다." },
       { name: "V3", prompt: "이 광고는 나에게 중요하다." }
     ]
   ))));
@@ -971,38 +979,64 @@ timeline.push(mcPage("mc", {},
 /* =====================================================================
    [블록 5] 개인 특성 변수 (숏폼 이용 문항은 시청 전으로 이동)
    ===================================================================== */
-const pgGaais = likertPage("gaais", {},
+/* AI 태도 — Novotny 등(2025)의 일반 AI 태도 6문항 단축척도 전체를 번안.
+   원척도 형식(질문형 문항, 7점, 양 끝만 표시)을 따름. 역문항 없음. 점수 = 6문항 평균. 제시 순서 고정. */
+const GAIA7 = [
+  "1<br><span class='anch'>전혀<br>그렇지<br>않다</span>", "2", "3", "4", "5", "6",
+  "7<br><span class='anch'>분명히<br>그렇다</span>"
+];
+const pgGaais = likertPage("gaais", { scale: "GAIA-6", reverse_items: "" },
   "AI에 대한 태도",
-  "지금부터는 광고와 상관없이, <b>평소 인공지능(AI)을 좋게 보는지 나쁘게 보는지</b> 묻습니다.",
+  "지금부터는 광고와 상관없이, <b>인공지능(AI)에 대한 평소 생각</b>을 묻습니다.<br>" +
+  "인공지능은 일반적으로 사람의 지능이 필요한 일을 수행할 수 있습니다. 인공지능은 기계가 사람처럼 스스로 감지하고, 행동하고, 학습하고, 적응할 수 있게 합니다. " +
+  "인공지능은 컴퓨터나 온라인 서비스에 들어 있을 수도 있고, 로봇과 같은 여러 기기에서 접할 수도 있습니다.",
   [
-    { name: "G1", prompt: "나는 일상에서 AI를 써 보는 것에 관심이 있다." },
-    { name: "G2", prompt: "AI는 쓸모 있게 활용될 곳이 많다." },
-    { name: "G3", prompt: "AI는 흥미롭다." },
-    { name: "G4", prompt: "AI는 우리 사회에 새로운 경제적 기회를 만들어 줄 수 있다." }
+    { name: "G1", prompt: "인공지능(AI)이 세상을 더 나은 곳으로 만들 것이라고 어느 정도 생각하십니까?" },
+    { name: "G2", prompt: "인공지능(AI)에 기반한 기술을 얼마나 사용하고 싶으십니까?" },
+    { name: "G3", prompt: "인공지능(AI) 분야에서 앞으로 이루어질 발전을 어느 정도 기대하십니까?" },
+    { name: "G4", prompt: "인공지능(AI)이 전 세계적인 문제의 해결책을 제공한다고 어느 정도 믿으십니까?" },
+    { name: "G5", prompt: "인공지능(AI)을 떠올리면 주로 긍정적인 감정이 드십니까?" },
+    { name: "G6", prompt: "인공지능(AI)이 적용된 기술과 적용되지 않은 기술이 있다면, 인공지능이 적용된 기술을 어느 정도 더 선택하시겠습니까?" }
   ],
-  { sub: "정답은 없으니 평소 생각대로 답해 주세요." }
+  { sub: "정답은 없으니 평소 생각대로 답해 주세요.", labels: GAIA7, randomize: false }
 );
 
-const pgTri = likertPage("tri", {},
-  "신기술 수용 성향",
-  "<b>새로운 기술이 나왔을 때 얼마나 빨리 받아들이고 잘 쓰는 편인지</b> 묻습니다.",
+/* 개인적 정보기술 혁신성(PIIT) — Agarwal & Prasad(1998) 4문항 전체를 번안.
+   7점 동의 척도. T2는 역문항(분석 시 8 − 점수). 점수 = 역채점 후 4문항 평균. 제시 순서 고정. */
+const pgTri = likertPage("piit", { scale: "PIIT", reverse_items: "T2" },
+  "새로운 기술 사용 성향",
+  "<b>새로운 정보기술(기기, 앱, 온라인 서비스 등)을 평소 어떻게 대하는 편인지</b> 묻습니다.",
   [
-    { name: "T1", prompt: "주변 사람들 중에서 나는 새로운 기술이 나오면 가장 먼저 써 보는 편이다." },
-    { name: "T2", prompt: "나는 새로 나온 기기나 앱의 사용법을 남의 도움 없이 혼자 알아낼 수 있다." },
-    { name: "T3", prompt: "기술 덕분에 나는 내 생활을 더 잘 관리할 수 있다." },
-    { name: "T4", prompt: "기술 덕분에 나는 일을 더 빠르고 편하게 할 수 있다." }
-  ]
+    { name: "T1", prompt: "새로운 정보기술에 대해 듣게 되면, 나는 그것을 직접 써 볼 방법을 찾아볼 것이다." },
+    { name: "T2", prompt: "나는 대체로 새로운 정보기술을 써 보는 것을 망설인다." },
+    { name: "T3", prompt: "주변 사람들 중에서 나는 보통 새로운 정보기술을 가장 먼저 써 보는 사람이다." },
+    { name: "T4", prompt: "나는 새로운 정보기술을 이것저것 써 보는 것을 좋아한다." }
+  ],
+  { randomize: false }
 );
 
-const pgLit = likertPage("lit", {},
-  "AI 리터러시",
-  "AI를 좋아하는지가 아니라, <b>AI를 얼마나 잘 알고 다룰 수 있는지</b> 스스로 평가해 주세요.",
-  [
-    { name: "L1", prompt: "나는 AI가 글·그림·영상을 어떻게 만들어 내는지 알고 있다." },
-    { name: "L2", prompt: "나는 AI가 만든 것과 사람이 만든 것을 구별할 수 있다." },
-    { name: "L3", prompt: "나는 생성형 AI 도구(챗GPT 등)를 잘 다룰 수 있다." }
-  ]
-);
+/* AI 리터러시 — Wang, Rau, & Yuan(2023)의 AILS 12문항 전체를 번안(자기보고식).
+   7점 동의 척도. 하위영역: 인식 L1~3, 사용 L4~6, 평가 L7~9, 윤리 L10~12.
+   L2·L5·L11은 역문항(분석 시 8 − 점수). 제시 순서 고정, 6문항씩 두 페이지. */
+const LIT_ITEMS = [
+  { name: "L1",  prompt: "나는 스마트 기기와 스마트 기기가 아닌 것을 구별할 수 있다." },
+  { name: "L2",  prompt: "나는 AI 기술이 나에게 어떤 도움을 줄 수 있는지 모른다." },
+  { name: "L3",  prompt: "나는 내가 사용하는 앱과 제품에 적용된 AI 기술을 알아볼 수 있다." },
+  { name: "L4",  prompt: "나는 AI 앱이나 제품을 능숙하게 사용해 일상적인 일에 도움을 받을 수 있다." },
+  { name: "L5",  prompt: "나는 새로운 AI 앱이나 제품의 사용법을 익히는 것이 대체로 어렵다." },
+  { name: "L6",  prompt: "나는 AI 앱이나 제품을 사용해 일의 효율을 높일 수 있다." },
+  { name: "L7",  prompt: "나는 AI 앱이나 제품을 얼마간 사용해 본 뒤 그것의 능력과 한계를 평가할 수 있다." },
+  { name: "L8",  prompt: "나는 AI가 제시하는 여러 해결 방안 중에서 적절한 것을 고를 수 있다." },
+  { name: "L9",  prompt: "나는 특정한 일에 가장 알맞은 AI 앱이나 제품을 여러 가지 중에서 고를 수 있다." },
+  { name: "L10", prompt: "나는 AI 앱이나 제품을 사용할 때 항상 윤리 원칙을 지킨다." },
+  { name: "L11", prompt: "나는 AI 앱이나 제품을 사용할 때 개인정보와 정보 보안 문제에 전혀 주의를 기울이지 않는다." },
+  { name: "L12", prompt: "나는 AI 기술의 오남용을 항상 경계한다." }
+];
+const LIT_DESC = "AI를 좋아하는지가 아니라, <b>AI를 얼마나 알고 다룰 수 있는지</b> 스스로 평가해 주세요.";
+const pgLit1 = likertPage("lit1", { scale: "AILS", reverse_items: "L2,L5" },
+  "AI 리터러시 (1/2)", LIT_DESC, LIT_ITEMS.slice(0, 6), { randomize: false });
+const pgLit2 = likertPage("lit2", { scale: "AILS", reverse_items: "L11" },
+  "AI 리터러시 (2/2)", LIT_DESC, LIT_ITEMS.slice(6), { randomize: false });
 
 /* =====================================================================
    [블록 6] 인구통계
@@ -1033,7 +1067,7 @@ const pgDemo = (function () {
   };
 })();
 
-timeline.push(backZone([keepAnswers(pgGaais), withBack(keepAnswers(pgTri)), withBack(keepAnswers(pgLit)),
+timeline.push(backZone([keepAnswers(pgGaais), withBack(keepAnswers(pgTri)), withBack(keepAnswers(pgLit1)), withBack(keepAnswers(pgLit2)),
                         withBack(keepAnswers(pgDemo))]));
 
 /* =====================================================================
