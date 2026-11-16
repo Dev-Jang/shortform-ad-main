@@ -1,5 +1,5 @@
 /* ============================================================
-   숏폼 광고 설문 — v7.4 (2026-11-16) · GitHub Pages + DataPipe 배포본
+   숏폼 광고 설문 — v7.5 (2026-11-16) · GitHub Pages + DataPipe 배포본
    - index.html이 이 파일(experiment.js)을 불러옵니다. 배포 전 CONFIG만 확인하세요.
 
    v7.0 변경 사항 (v6.2 대비)
@@ -33,6 +33,10 @@
    ④ 연구자 확인용 링크(key + cell)는 배정 순번을 받지 않음
    ※ 분석 규칙: 리커트는 scores 열(1~7) 사용(response 열은 0~6). T2·L2·L5·L11만 8 − scores로 역채점.
       [앞 문항 수정]으로 같은 페이지가 여러 행 저장되면 참가자 × product × block별로 nav가 back이 아닌 마지막 행을 사용.
+
+   v7.5 변경 사항 (2026-11-16)
+   ① 광고의 솔직함(투명성) 페이지도 수정 구역에 포함: 제작 노력 페이지에서 [앞 문항 수정]으로 돌아가 고칠 수 있음
+      (영상 시청으로는 돌아갈 수 없고, 지불 의사 금액 페이지 이후에는 수정할 수 없음)
    ============================================================ */
 
 (async function main() {
@@ -279,7 +283,7 @@ p.jspsych-survey-multi-choice-text { font-size: 16px; font-weight: 500; line-hei
 })();
 
 /* ========================== [EDIT] CONFIG ========================== */
-const CODE_VERSION = "7.4";
+const CODE_VERSION = "7.5";
 const CONFIG = {
   RUN_ENV: "pipe",               // "pipe"(DataPipe 저장) | "local"(CSV 내려받기, 시험용)
   DATAPIPE_ID: "DMiQ39uMZDXk",   // pipe.jspsych.org의 Experiment ID (shortform-ad-main)
@@ -864,8 +868,10 @@ function measureBlock(prodKey, idx) {
   const nm = PRODUCTS[prodKey].name;
   const t = [];
 
-  /* ① 지각된 투명성 — 첫 클릭 반응시간 측정 */
-  t.push(likertPage("transparency", { video_index: idx, product: prodKey },
+  const zonePages = [];
+
+  /* ① 지각된 투명성 — 수정 구역의 첫 페이지(영상으로는 돌아갈 수 없음). 첫 클릭 반응시간은 방문할 때마다 기록되며 첫 방문 행의 값이 원래 값임 */
+  zonePages.push(keepAnswers(likertPage("transparency", { video_index: idx, product: prodKey },
     "광고의 솔직함",
     "방금 보신 <b>" + nm + " 광고</b>가 <b>시청자를 얼마나 숨김없이 대한다고 느껴졌는지</b> 묻습니다.",
     [
@@ -886,12 +892,10 @@ function measureBlock(prodKey, idx) {
       },
       on_finish_extra: function (d) { d.first_click_rt = nvFirstClick; }
     }
-  ));
-
-  const zonePages = [];
+  )));
 
   /* ② 지각된 제작 노력 */
-  zonePages.push(keepAnswers(likertPage("effort", { video_index: idx, product: prodKey },
+  zonePages.push(withBack(keepAnswers(likertPage("effort", { video_index: idx, product: prodKey },
     "광고 제작에 든 품",
     "방금 보신 <b>" + nm + " 광고</b>를 <b>만드는 데 품이 얼마나 들었을 것 같은지</b> 묻습니다.",
     [
@@ -899,7 +903,7 @@ function measureBlock(prodKey, idx) {
       { name: "EF2", prompt: "이 광고를 만드는 데 오랜 시간이 걸렸을 것 같다." },
       { name: "EF3", prompt: "이 광고는 공을 많이 들인 광고인 것 같다." }
     ]
-  )));
+  ))));
 
   /* ③ 지각된 광고 가치 (AC1 제거) */
   zonePages.push(withBack(keepAnswers(likertPage("advalue", { video_index: idx, product: prodKey },
