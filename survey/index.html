@@ -1,22 +1,25 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex">
-  <title>숏폼 광고 소비자 반응 설문</title>
-  <link rel="stylesheet" href="https://unpkg.com/jspsych@8.2.1/css/jspsych.css">
-  <script src="https://unpkg.com/jspsych@8.2.1"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-survey-likert@2.2.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-survey-multi-choice@2.2.1"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-video-button-response@2.1.1"></script>
-  <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
-  <script src="https://unpkg.com/@jspsych/extension-pipe@0.2.0"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>설문 마감 안내</title>
+<style>
+  body { margin: 0; background: #f4f5f7; color: #1f2933; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; line-height: 1.7; }
+  .card { max-width: 440px; margin: 16vh auto 0; background: #fff; border-radius: 14px; padding: 32px 24px; box-shadow: 0 2px 12px rgba(0,0,0,.06); text-align: center; }
+  h1 { font-size: 21px; margin: 0 0 14px; }
+  p { margin: 0 0 10px; font-size: 15.5px; }
+  .sub { color: #52606d; font-size: 14px; margin-top: 18px; }
+  @media (max-width: 480px) { .card { margin: 10vh 16px 0; } }
+</style>
 </head>
 <body>
-  <noscript>이 설문은 자바스크립트가 켜져 있어야 진행할 수 있습니다.</noscript>
-  <script src="experiment.js?v=7.5"></script>
+  <div class="card">
+    <h1>설문이 마감되었습니다</h1>
+    <p>목표 인원이 모두 채워져 설문 참여를 종료했습니다.</p>
+    <p><b>참여해 주셔서 감사합니다.</b></p>
+    <p class="sub">이미 설문을 완료하신 분의 사은품은 수집 종료 후 한꺼번에 발송합니다.<br>문의: joshuajang@hanyang.ac.kr</p>
+  </div>
 </body>
 </html>
